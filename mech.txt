@@ -1,0 +1,123 @@
+/* Defines the base address of the memories and peripherals */
+#include "inc/hw_memmap.h"
+
+/* Defines the common types and macros */
+#include "inc/hw_types.h"
+
+/* Defines and Macros for GPIO API */
+#include "driverlib/gpio.h"
+
+/* Prototypes for the system control driver */
+#include "driverlib/sysctl.h"
+
+/* Prototypes for the NVIC Interrupt Controller Driver. */
+#include "driverlib/interrupt.h"
+#include "inc/hw_timer.h"
+#include "driverlib/timer.h"
+
+/*  Macros that define the interrupt assignment on Stellaris. */
+#include "inc/hw_ints.h"
+
+/* Driver for the SysTick timer in NVIC. */
+#include "driverlib/systick.h"
+
+//volatile unsigned long g_ulcount = 0;
+unsigned long i;
+
+void Pin_Int1(void)
+{
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTF_BASE, GPIO_PIN_4);
+	//Check for debouncing of switch
+	for(i=0;i<=5000;i++)
+	{
+	}
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_PIN_1);
+	SysCtlDelay(SysCtlClockGet() / 12);
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0);
+	SysCtlDelay(SysCtlClockGet() / 12);
+}
+
+
+void Pin_Int(void)
+{
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTA_BASE, GPIO_PIN_2);
+	//Check for debouncing of switch
+	for(i=0;i<=2000;i++)
+	{
+	}
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);
+	SysCtlDelay(SysCtlClockGet() / 12);
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
+	SysCtlDelay(SysCtlClockGet() / 12);
+}
+
+
+int main(void)
+{
+	/* Set the clocking to directly run from the crystal at 16MHz */
+	SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+
+	/* Set the clock for the GPIO Port F */
+
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	
+	/* Set the clock for the WTimer 1  */
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER1);
+
+	/* timer should be disabled before configuring it */
+	TimerDisable(WTIMER1_BASE, TIMER_A);
+
+
+	/* Set the type of the GPIO Pin of PORTF */
+	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2 );
+	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1 );
+	GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, GPIO_PIN_2);
+	GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+	/* GPIO Pin2 on PORT F initialized to 0 */
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2 , 0 );
+	/* GPIO Pin2 on PORT F initialized to 0 */
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1 ,0  );
+
+
+	/*Register Interrupt to call Interrupt Handler*/
+	GPIOPortIntRegister(GPIO_PORTA_BASE, Pin_Int);
+	
+	GPIOPortIntRegister(GPIO_PORTF_BASE, Pin_Int1);
+
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTA_BASE, GPIO_PIN_2);
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTF_BASE, GPIO_PIN_4);
+
+	/*Configure GPIO pad with internal pull-up enabled*/
+	GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_4, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
+
+	/*Set interrupt triggering sequence*/
+	GPIOIntTypeSet(GPIO_PORTA_BASE, GPIO_PIN_2,GPIO_FALLING_EDGE);
+	/*Set interrupt triggering sequence*/
+	GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_4,GPIO_FALLING_EDGE);
+
+	/*Enable interrupts on selected pin*/
+	GPIOPinIntEnable(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+	/*Enable interrupts on selected pin*/
+	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_4);
+
+	/*Enable interrupts on selected port*/
+	IntEnable(INT_GPIOA);
+	/*Enable interrupts on selected port*/
+	IntEnable(INT_GPIOF);
+
+	/*Enable global interrupts*/
+	IntMasterEnable();
+
+	while(1)
+	{
+
+	}
+
+}

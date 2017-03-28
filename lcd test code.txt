@@ -1,0 +1,55 @@
+
+#include "inc/hw_memmap.h"
+#include "inc/hw_types.h"
+#include "driverlib/gpio.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/adc.h"
+#include "driverlib/uart.h"
+#include "driverlib/interrupt.h"
+#include "utils/uartstdio.h"
+#include "inc/hw_timer.h"
+#include "driverlib/timer.h"
+#include "inc/hw_ints.h"
+#include "driverlib/pin_map.h"
+#include "driverlib/LCD_TIVA.h"
+
+int main(void)
+{
+	int i=0;
+	/*Set the clocking to directly run from the crystal at 16MHz*/
+	SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+
+	/* Set the clock for the GPIO Port F */
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+
+
+    /*Setting Pin2 of PortF as Output*/
+	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE,GPIO_PIN_1);
+	GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE,GPIO_PIN_1|GPIO_PIN_2);
+	GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE,GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3);
+
+	//GPIOPinTypeGPIOOutput(GPIO_PORTC_BASE,GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7);
+	GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_1,0);
+    GPIOPinWrite(GPIO_PORTE_BASE,GPIO_PIN_1|GPIO_PIN_2,1);
+    GPIOPinWrite(GPIO_PORTD_BASE,GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3,0);
+
+    void LCDEnable();
+    void LCDReset();
+
+
+    LCDDisplayInitializing();
+    mil(2);
+    for(i=0;i<5;i++)
+    {
+    	 LCDWriteInteger(i);
+    	 mil(1000);
+    	 LCDWriteCommand(0x80);
+    	//LCDWriteString("SUGAM");
+    }
+
+   GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_1,GPIO_PIN_1);
+   mil(2);
+   return 0;
+}

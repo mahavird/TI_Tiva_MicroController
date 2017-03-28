@@ -1,0 +1,208 @@
+/*Army Institute Of Technology, AIT, Pune
+ * Mahavir Dwivedi,   mahaviredx@gmail.com
+ */
+#include "inc/hw_memmap.h"
+#include "inc/hw_types.h"
+#include "driverlib/gpio.h"
+#include "driverlib/sysctl.h"
+
+#include "driverlib/uart.h"
+#include "driverlib/interrupt.h"
+#include "utils/uartstdio.h"
+#include "inc/hw_timer.h"
+#include "driverlib/timer.h"
+#include "inc/hw_ints.h"
+#include "driverlib/pin_map.h"
+
+
+volatile unsigned long g_ulcount = 0,j;
+int i;
+int l,buttonState;
+int e[14];
+
+void WTimer1AIntHandler(void)
+{
+	//int val=0;
+
+	// Clear the timer interrupt
+	TimerIntClear(WTIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+	/*//toggling the led connected to pin 1
+	val = GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_1);
+	val = ~val;
+	val = val & GPIO_PIN_1;*/
+
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_PIN_1);
+
+}
+
+
+void InitConsole(void)
+{
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+
+	/* Make the UART pins be peripheral controlled. */
+	GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+	/* Initialize the UART for console I/O */
+	UARTStdioInit(0);
+}
+
+void Pin_Int(void)
+{
+
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+
+
+	// decoding of RC5 protocol
+	buttonState = GPIOPinRead(GPIO_PORTA_BASE,GPIO_PIN_2);
+	if(GPIOPinRead(GPIO_PORTA_BASE,GPIO_PIN_2)==0)
+	{
+		j=0x00;
+
+		SysCtlDelay(SysCtlClockGet()/30000);
+
+		for(i=0;i<14;i++)
+		{
+			buttonState = GPIOPinRead(GPIO_PORTA_BASE,GPIO_PIN_2);
+			if(GPIOPinRead(GPIO_PORTA_BASE,GPIO_PIN_2)==0)
+			{
+				e[i]=1;
+			}
+			else
+			{
+				e[i]=0;
+			}
+
+			SysCtlDelay(SysCtlClockGet()/1700);
+
+		}
+		for(i=8;i<14;i++)
+		{
+			if(e[i]==1)
+			{
+				j=j|0x01;
+			}
+			j<<=1;
+		}
+	}
+
+}
+
+int main(void)
+{
+	unsigned long int ulbase=0;
+
+	/*Set the clocking to run at 80Mhz from the crystal of 16MHz using PLL*/
+	SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+
+	/* Set the clock for the GPIO Port F */
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+
+	/* Set the clock for the GPIO Port A */
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+	/* Set the type of the GPIO Pin */
+	GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+	/* Set the type of the GPIO Pin */
+	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1);
+
+	/*Setting the led 1 initially as low*/
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1,0);
+
+	/* Set the clock for the WTimer 1  */
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER1);
+
+	/* timer should be disabled before configuring it */
+	TimerDisable(WTIMER1_BASE, TIMER_A);
+
+	/*Register Interrupt to call Interrupt Handler*/
+	GPIOPortIntRegister(GPIO_PORTA_BASE, Pin_Int);
+
+	/*Clear interrupt register*/
+	GPIOPinIntClear(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+	/*Configure GPIO pad with internal pull-up enabled*/
+	GPIOPadConfigSet(GPIO_PORTA_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
+
+	/*Set interrupt triggering sequence*/
+	GPIOIntTypeSet(GPIO_PORTA_BASE, GPIO_PIN_2, GPIO_FALLING_EDGE);
+
+	/*Enable interrupts on selected pin*/
+	GPIOPinIntEnable(GPIO_PORTA_BASE, GPIO_PIN_2);
+
+	/* Configuring the timer in split pair mode */
+	TimerConfigure(WTIMER1_BASE, TIMER_CFG_SPLIT_PAIR|TIMER_CFG_A_PERIODIC);
+	//setting the load value to 80000000
+	ulbase=80000000;
+
+	//setting the load value to 80000000
+	TimerLoadSet(WTIMER1_BASE, TIMER_A,ulbase);
+
+	/* setting the Timer interrupt register */
+	TimerIntRegister(WTIMER1_BASE, TIMER_A, WTimer1AIntHandler);
+
+	/* enabling the Timer interrupt*/
+	TimerIntEnable(WTIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+	/*Enable interrupts on selected port*/
+	IntEnable(INT_GPIOA);
+
+	/*Enabling the Uart*/
+	InitConsole();
+
+	IntEnable(INT_WTIMER1A);
+
+	/* enabling the interrupt*/
+	IntMasterEnable();
+
+	while(1)
+	{
+
+
+		UARTprintf("%d\n",j); //printing the decoded received bit
+		switch(j)
+		{
+
+		case 32:
+            j=0;
+            TimerPrescaleSet(WTIMER1_BASE,TIMER_A,0x003C);
+			TimerEnable(WTIMER1_BASE,TIMER_A);
+			break;
+
+
+		case 24:
+			j=0;
+			TimerPrescaleSet(WTIMER1_BASE,TIMER_A,0x0078);
+			TimerEnable(WTIMER1_BASE,TIMER_A);
+			break;
+
+
+		case 16:
+			j=0;
+			TimerPrescaleSet(WTIMER1_BASE,TIMER_A,0x00B4);
+			TimerEnable(WTIMER1_BASE,TIMER_A);
+			break;
+
+		case 8:
+			j=0;
+			TimerPrescaleSet(WTIMER1_BASE,TIMER_A,0x00F0);
+			TimerEnable(WTIMER1_BASE,TIMER_A);
+			break;
+
+		default :
+			/* timer should be disabled before configuring it */
+			TimerDisable(WTIMER1_BASE, TIMER_A);
+			GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1 ,0);
+			break;
+
+		}
+
+
+	}
+
+}
